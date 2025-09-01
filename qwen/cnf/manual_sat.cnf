@@ -1,0 +1,11 @@
+c Hand-crafted satisfiable 3-SAT problem
+c Solution: x1=T, x2=F, x3=T, x4=F
+c Clause 1: (x1 OR x2 OR x3) satisfied by x1=T
+c Clause 2: (NOT x1 OR NOT x2 OR x4) satisfied by NOT x2=T  
+c Clause 3: (x1 OR x3 OR NOT x4) satisfied by x1=T
+c Clause 4: (NOT x1 OR x2 OR x3) satisfied by x3=T
+p cnf 4 4
+1 2 3 0
+-1 -2 4 0
+1 3 -4 0
+-1 2 3 0
