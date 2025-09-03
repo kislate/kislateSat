@@ -1,8 +1,0 @@
-c Simple satisfiable problem
-c Variables: x1, x2, x3
-c Formula: (x1 OR x2) AND (NOT x1 OR x3) AND (x2 OR NOT x3)
-c Solution: x1=true, x2=true, x3=true
-p cnf 3 3
-1 2 0
--1 3 0
-2 -3 0

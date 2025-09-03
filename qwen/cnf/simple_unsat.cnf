@@ -1,6 +1,0 @@
-c Simple unsatisfiable problem
-c Variables: x1
-c Formula: x1 AND NOT x1 (contradiction)
-p cnf 1 2
-1 0
--1 0

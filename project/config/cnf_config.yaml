@@ -1,0 +1,24 @@
+# CNF测试文件配置
+test_files:
+  # 可满足的文件
+  satisfiable:
+    - { id: 1, name: "1.cnf", path: "test/1.cnf", description: "Basic SAT" }
+    - { id: 2, name: "2.cnf", path: "test/2.cnf", description: "Basic SAT" }
+    - { id: 3, name: "3.cnf", path: "test/3.cnf", description: "Basic SAT" }
+    - { id: 5, name: "5.cnf", path: "test/5.cnf", description: "Basic SAT" }
+    - { id: 6, name: "6.cnf", path: "test/6.cnf", description: "Basic SAT" }
+    - { id: 10, name: "10.cnf", path: "test/10.cnf", description: "Basic SAT" }
+    - { id: 12, name: "12.cnf", path: "test/12.cnf", description: "Basic SAT" }
+  
+  # 不可满足的文件
+  unsatisfiable:
+    - { id: 4, name: "4u.cnf", path: "test/4u.cnf", description: "UNSAT" }
+    - { id: 7, name: "7u.cnf", path: "test/7u.cnf", description: "UNSAT" }
+    - { id: 8, name: "8u.cnf", path: "test/8u.cnf", description: "UNSAT" }
+    - { id: 9, name: "9u.cnf", path: "test/9u.cnf", description: "UNSAT" }
+    - { id: 11, name: "11u.cnf", path: "test/11u.cnf", description: "UNSAT" }
+
+# 显示配置
+display:
+  files_per_row: 3  # 每行显示多少个文件
+  show_description: true  # 是否显示描述
