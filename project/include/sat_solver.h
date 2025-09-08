@@ -30,8 +30,8 @@ int unitPropagate(CNF* cnf, Literal literal, Assignment* assignment);
 Literal select_literal(const CNF* cnf);
 Variable select_variable(const CNF* cnf, const Assignment* assignment);
 
-// 输出结果
-void save_result(const char* filename, SatResult result, const Assignment* assignment, double elapsed_time_ms);
+// // 输出结果
+// void save_result(const char* filename, SatResult result, const Assignment* assignment, double elapsed_time_ms);
 
 // 实时状态输出
 void print_status_update(void);

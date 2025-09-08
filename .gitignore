@@ -44,9 +44,12 @@ desktop.ini
 *.la
 *.lo
 *.slo
+*.res
 
 # 构建目录
 build/
 bin/
 target/
 cmake-build-*/
+res/
+sudoku_cnf/

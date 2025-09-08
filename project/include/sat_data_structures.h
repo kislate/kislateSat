@@ -85,8 +85,8 @@ void init_cnf(CNF* cnf);
 void free_cnf(CNF* cnf);                 
 // 清空              
 void clear_cnf(CNF* cnf);            
-// 从文件加载cnf
-int load_cnf_from_file(CNF* cnf, const char* filename); 
+// // 从文件加载cnf
+// int load_cnf_from_file(CNF* cnf, const char* filename); 
 // 从 src 中读取cnf给dest
 void copy_cnf(CNF* dest, const CNF* src);          
 // 基础的判空检查    

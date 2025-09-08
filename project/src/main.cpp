@@ -26,18 +26,18 @@ int main(int argc, char* argv[]) {
         CNF cnf;
         init_cnf(&cnf);
         
-        // Interactive load CNF file
+        // 输入cnf文件
         char input_file[256];
         if (!load_cnf_interactive(&cnf, input_file)) {
             free_cnf(&cnf);
             return 1;
         }
         
-        // Initialize assignment
+        // 初始化解数组
         Assignment assignment;
         init_assignment(&assignment, cnf.num_variables);
         
-        // Reset solving state counters
+        // 重置统计数据
         extern int dpll_call_count, unit_propagation_count, backtrack_count;
         extern time_t last_output_time;
         dpll_call_count = 0;
@@ -48,14 +48,14 @@ int main(int argc, char* argv[]) {
         printf("\nStart Solving...\n");
         clock_t start_time = clock();
         
-        // Solve
+        // 求解
         SatResult result = dpll_solve(&cnf, &assignment);
         
         clock_t end_time = clock();
         double elapsed_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;
         double elapsed_time_ms = elapsed_time * 1000;
         
-        // Output result
+        // 输出结果
         printf("Solving Completed!\n");
         printf("Result: %s\n", (result == SAT) ? "Satisfiable (SAT)" : 
                           (result == UNSAT) ? "Unsatisfiable (UNSAT)" : "Unknown");
@@ -66,10 +66,10 @@ int main(int argc, char* argv[]) {
                dpll_call_count, unit_propagation_count, backtrack_count);
     #endif
 
-        // Save file and do final output and verification
+        // 保存并打印结果
         save_and_print_result(input_file, result, &assignment, elapsed_time_ms);
         
-        // Cleanup memory
+        // 清空
         free_assignment(&assignment);
         free_cnf(&cnf);
     } else {

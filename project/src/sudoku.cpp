@@ -12,7 +12,7 @@ void init_sudoku_grid(SudokuGrid* sudoku) {
     sudoku->filled_cells = 0;
 }
 
-// 检查在指定位置放置数字是否有效
+// 检查在指定位置放置数字是否有效（百分号数独版本）
 int is_valid_placement(const SudokuGrid* sudoku, int row, int col, int num) {
     // 检查行
     for (int j = 0; j < SUDOKU_SIZE; j++) {
@@ -30,6 +30,38 @@ int is_valid_placement(const SudokuGrid* sudoku, int row, int col, int num) {
     for (int i = box_row; i < box_row + 3; i++) {
         for (int j = box_col; j < box_col + 3; j++) {
             if (sudoku->grid[i][j] == num) return 0;
+        }
+    }
+    
+    // // 百分号数独额外约束：检查主对角线
+    // if (row == col) {
+    //     for (int i = 0; i < SUDOKU_SIZE; i++) {
+    //         if (sudoku->grid[i][i] == num) return 0;
+    //     }
+    // }
+    
+    // 百分号数独额外约束：检查副对角线
+    if (row + col == SUDOKU_SIZE - 1) {
+        for (int i = 0; i < SUDOKU_SIZE; i++) {
+            if (sudoku->grid[i][SUDOKU_SIZE - 1 - i] == num) return 0;
+        }
+    }
+    
+    // 百分号数独额外约束：检查区域(2,2)到(4,4) - 转换为0索引即(1,1)到(3,3)
+    if (row >= 1 && row <= 3 && col >= 1 && col <= 3) {
+        for (int i = 1; i <= 3; i++) {
+            for (int j = 1; j <= 3; j++) {
+                if (sudoku->grid[i][j] == num) return 0;
+            }
+        }
+    }
+    
+    // 百分号数独额外约束：检查区域(6,6)到(8,8) - 转换为0索引即(5,5)到(7,7)
+    if (row >= 5 && row <= 7 && col >= 5 && col <= 7) {
+        for (int i = 5; i <= 7; i++) {
+            for (int j = 5; j <= 7; j++) {
+                if (sudoku->grid[i][j] == num) return 0;
+            }
         }
     }
     
@@ -62,58 +94,107 @@ int solve_sudoku_backtrack(SudokuGrid* sudoku) {
     return 1;  // 已解决
 }
 
-// 生成完整的数独解
-void generate_full_sudoku(SudokuGrid* sudoku) {
-    init_sudoku_grid(sudoku);
-    
-    // 随机填充一些初始数字以增加随机性
-    srand(time(NULL));
-    
-    // 在对角线宫格中填充一些数字
-    for (int box = 0; box < 3; box++) {
-        int start_row = box * 3;
-        int start_col = box * 3;
-        
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                int num = (i * 3 + j + box * 3) % 9 + 1;
-                if (is_valid_placement(sudoku, start_row + i, start_col + j, num)) {
-                    sudoku->grid[start_row + i][start_col + j] = num;
-                    sudoku->filled_cells++;
-                }
-            }
-        }
+// 随机打乱数组
+void shuffle_array(int* array, int size) {
+    for (int i = size - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
     }
-    
-    // 用回溯法完成剩余部分
-    solve_sudoku_backtrack(sudoku);
 }
 
-// 挖洞法创建数独题目
-void create_puzzle_by_digging(SudokuGrid* sudoku, int holes_count) {
-    if (holes_count > SUDOKU_CELLS) holes_count = SUDOKU_CELLS - 17;  // 至少保留17个格子
+// 递归填充完整数独（使用你提供的算法）
+int fill_sudoku_recursive(SudokuGrid* sudoku, int pos) {
+    if (pos == SUDOKU_CELLS) return 1;
     
-    int dug_holes = 0;
-    while (dug_holes < holes_count) {
+    int row = pos / SUDOKU_SIZE;
+    int col = pos % SUDOKU_SIZE;
+    
+    // 创建1-9的随机序列
+    int nums[SUDOKU_SIZE];
+    for (int i = 0; i < SUDOKU_SIZE; i++) {
+        nums[i] = i + 1;
+    }
+    shuffle_array(nums, SUDOKU_SIZE);
+    
+    for (int i = 0; i < SUDOKU_SIZE; i++) {
+        if (is_valid_placement(sudoku, row, col, nums[i])) {
+            sudoku->grid[row][col] = nums[i];
+            sudoku->filled_cells++;
+            if (fill_sudoku_recursive(sudoku, pos + 1)) {
+                return 1;
+            }
+            sudoku->grid[row][col] = 0;
+            sudoku->filled_cells--;
+        }
+    }
+    return 0;
+}
+
+// 生成完整的数独解（使用新算法）
+void generate_full_sudoku(SudokuGrid* sudoku) {
+    init_sudoku_grid(sudoku);
+    srand(time(NULL));
+    fill_sudoku_recursive(sudoku, 0);
+}
+
+// 解数独的计数器，用于唯一解判定
+static int solution_count = 0;
+
+// 检查唯一解的求解函数
+void solve_for_uniqueness(SudokuGrid* sudoku, int pos) {
+    if (pos == SUDOKU_CELLS) {
+        solution_count++;
+        return;
+    }
+    if (solution_count > 1) return; // 剪枝优化
+    
+    int row = pos / SUDOKU_SIZE;
+    int col = pos % SUDOKU_SIZE;
+    
+    if (sudoku->grid[row][col] != 0) {
+        solve_for_uniqueness(sudoku, pos + 1);
+        return;
+    }
+    
+    for (int val = 1; val <= SUDOKU_SIZE; val++) {
+        if (is_valid_placement(sudoku, row, col, val)) {
+            sudoku->grid[row][col] = val;
+            solve_for_uniqueness(sudoku, pos + 1);
+            sudoku->grid[row][col] = 0;
+            if (solution_count > 1) return; // 剪枝
+        }
+    }
+}
+
+// 挖洞法创建数独题目（使用改进的唯一解检查）
+void create_puzzle_by_digging(SudokuGrid* sudoku, int holes_count) {
+    if (holes_count > SUDOKU_CELLS - 17) holes_count = SUDOKU_CELLS - 17;  // 至少保留17个格子
+    
+    int attempts = holes_count;
+    while (attempts > 0) {
         int row = rand() % SUDOKU_SIZE;
         int col = rand() % SUDOKU_SIZE;
         
-        if (sudoku->grid[row][col] != 0) {
-            // 临时挖掉这个格子
-            int original_value = sudoku->grid[row][col];
-            sudoku->grid[row][col] = 0;
-            sudoku->filled_cells--;
-            
-            // 检查是否仍有唯一解（简化版检查）
-            SudokuGrid test_sudoku = *sudoku;
-            if (solve_sudoku_backtrack(&test_sudoku)) {
-                // 有解，保持挖掉的状态
-                dug_holes++;
-            } else {
-                // 无解，恢复原值
-                sudoku->grid[row][col] = original_value;
-                sudoku->filled_cells++;
-            }
+        if (sudoku->grid[row][col] == 0) continue; // 已经是空格
+        
+        // 备份原值
+        int backup = sudoku->grid[row][col];
+        sudoku->grid[row][col] = 0;
+        sudoku->filled_cells--;
+        
+        // 检查唯一解
+        solution_count = 0;
+        solve_for_uniqueness(sudoku, 0);
+        
+        if (solution_count != 1) {
+            // 不是唯一解，恢复原值
+            sudoku->grid[row][col] = backup;
+            sudoku->filled_cells++;
+        } else {
+            // 是唯一解，成功挖掉一个洞
+            attempts--;
         }
     }
 }
@@ -280,6 +361,116 @@ void add_sudoku_constraints(CNF* cnf) {
                         free_literal_array(&box_unique.literals);
                     }
                 }
+            }
+        }
+    }
+    
+    // // 5. 百分号数独特殊约束：主对角线每个数字只出现一次
+    // for (int num = 1; num <= SUDOKU_SIZE; num++) {
+    //     // 主对角线至少有一个num
+    //     Clause diag1_constraint;
+    //     init_literal_array(&diag1_constraint.literals);
+    //     for (int i = 0; i < SUDOKU_SIZE; i++) {
+    //         push_literal(&diag1_constraint.literals, get_variable_number(i, i, num));
+    //     }
+    //     push_clause(&cnf->clauses, &diag1_constraint);
+    //     free_literal_array(&diag1_constraint.literals);
+        
+    //     // 主对角线最多有一个num
+    //     for (int pos1 = 0; pos1 < SUDOKU_SIZE; pos1++) {
+    //         for (int pos2 = pos1 + 1; pos2 < SUDOKU_SIZE; pos2++) {
+    //             Clause diag1_unique;
+    //             init_literal_array(&diag1_unique.literals);
+    //             push_literal(&diag1_unique.literals, -get_variable_number(pos1, pos1, num));
+    //             push_literal(&diag1_unique.literals, -get_variable_number(pos2, pos2, num));
+    //             push_clause(&cnf->clauses, &diag1_unique);
+    //             free_literal_array(&diag1_unique.literals);
+    //         }
+    //     }
+    // }
+    
+    // 6. 百分号数独特殊约束：副对角线每个数字只出现一次
+    for (int num = 1; num <= SUDOKU_SIZE; num++) {
+        // 副对角线至少有一个num
+        Clause diag2_constraint;
+        init_literal_array(&diag2_constraint.literals);
+        for (int i = 0; i < SUDOKU_SIZE; i++) {
+            push_literal(&diag2_constraint.literals, get_variable_number(i, SUDOKU_SIZE - 1 - i, num));
+        }
+        push_clause(&cnf->clauses, &diag2_constraint);
+        free_literal_array(&diag2_constraint.literals);
+        
+        // 副对角线最多有一个num
+        for (int pos1 = 0; pos1 < SUDOKU_SIZE; pos1++) {
+            for (int pos2 = pos1 + 1; pos2 < SUDOKU_SIZE; pos2++) {
+                Clause diag2_unique;
+                init_literal_array(&diag2_unique.literals);
+                push_literal(&diag2_unique.literals, -get_variable_number(pos1, SUDOKU_SIZE - 1 - pos1, num));
+                push_literal(&diag2_unique.literals, -get_variable_number(pos2, SUDOKU_SIZE - 1 - pos2, num));
+                push_clause(&cnf->clauses, &diag2_unique);
+                free_literal_array(&diag2_unique.literals);
+            }
+        }
+    }
+    
+    // 7. 百分号数独特殊约束：区域(1,1)到(3,3)每个数字只出现一次 (0索引)
+    for (int num = 1; num <= SUDOKU_SIZE; num++) {
+        // 区域至少有一个num
+        Clause region1_constraint;
+        init_literal_array(&region1_constraint.literals);
+        for (int row = 1; row <= 3; row++) {
+            for (int col = 1; col <= 3; col++) {
+                push_literal(&region1_constraint.literals, get_variable_number(row, col, num));
+            }
+        }
+        push_clause(&cnf->clauses, &region1_constraint);
+        free_literal_array(&region1_constraint.literals);
+        
+        // 区域最多有一个num
+        for (int pos1 = 0; pos1 < 9; pos1++) {
+            for (int pos2 = pos1 + 1; pos2 < 9; pos2++) {
+                int row1 = 1 + pos1 / 3;
+                int col1 = 1 + pos1 % 3;
+                int row2 = 1 + pos2 / 3;
+                int col2 = 1 + pos2 % 3;
+                
+                Clause region1_unique;
+                init_literal_array(&region1_unique.literals);
+                push_literal(&region1_unique.literals, -get_variable_number(row1, col1, num));
+                push_literal(&region1_unique.literals, -get_variable_number(row2, col2, num));
+                push_clause(&cnf->clauses, &region1_unique);
+                free_literal_array(&region1_unique.literals);
+            }
+        }
+    }
+    
+    // 8. 百分号数独特殊约束：区域(5,5)到(7,7)每个数字只出现一次 (0索引)
+    for (int num = 1; num <= SUDOKU_SIZE; num++) {
+        // 区域至少有一个num
+        Clause region2_constraint;
+        init_literal_array(&region2_constraint.literals);
+        for (int row = 5; row <= 7; row++) {
+            for (int col = 5; col <= 7; col++) {
+                push_literal(&region2_constraint.literals, get_variable_number(row, col, num));
+            }
+        }
+        push_clause(&cnf->clauses, &region2_constraint);
+        free_literal_array(&region2_constraint.literals);
+        
+        // 区域最多有一个num
+        for (int pos1 = 0; pos1 < 9; pos1++) {
+            for (int pos2 = pos1 + 1; pos2 < 9; pos2++) {
+                int row1 = 5 + pos1 / 3;
+                int col1 = 5 + pos1 % 3;
+                int row2 = 5 + pos2 / 3;
+                int col2 = 5 + pos2 % 3;
+                
+                Clause region2_unique;
+                init_literal_array(&region2_unique.literals);
+                push_literal(&region2_unique.literals, -get_variable_number(row1, col1, num));
+                push_literal(&region2_unique.literals, -get_variable_number(row2, col2, num));
+                push_clause(&cnf->clauses, &region2_unique);
+                free_literal_array(&region2_unique.literals);
             }
         }
     }
