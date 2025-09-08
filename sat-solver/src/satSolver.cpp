@@ -62,6 +62,51 @@ Literal select_literal_simple(const CNF* cnf) {
     return 0;
 }
 
+// 找出现次数最多的
+Literal select_literal_occureMax(const CNF* cnf)
+{
+    if (cnf->size == 0) return 0;
+    
+    int* pos_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    int* neg_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    
+    // 计算每个文字的出现次数
+    for (int i = 0; i < cnf->size; i++) {
+        Clause* clause = &cnf->data[i];
+        for (int j = 0; j < clause->size; j++) {
+            Literal lit = clause->data[j];
+            int var = (lit > 0) ? lit : -lit;
+            
+            if (lit > 0) {
+                pos_count[var]++;
+            } else {
+                neg_count[var]++;
+            }
+        }
+    }
+    
+    // 找到出现次数最多的文字
+    int max_count = -1;
+    Literal best_literal = 0;
+    
+    for (int i = 1; i <= cnf->num_variables; i++) {
+        if (pos_count[i] > max_count) {
+            max_count = pos_count[i];
+            best_literal = i;
+        }
+        if (neg_count[i] > max_count) {
+            max_count = neg_count[i];
+            best_literal = -i;
+        }
+    }
+    
+    free(pos_count);
+    free(neg_count);
+    
+    return best_literal;
+}
+
+// 求第六个有奇效
 Literal select_literal_jw(const CNF* cnf) {
     if (cnf->size == 0) return 0;
     
@@ -144,7 +189,14 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
     }
     
     // 选择一个文字进行分支
-    Literal literal = select_literal_jw(cnf);
+    // Literal literal = select_literal_jw(cnf);
+    // Literal literal = select_literal_occureMax(cnf);
+    Literal literal;
+    int rand_seed = rand() % 100;
+    if (rand_seed < 0) literal = select_literal_simple(cnf);
+    else if (rand_seed < 93) literal = select_literal_jw(cnf);
+    else literal = select_literal_occureMax(cnf);
+
     if (literal == 0) {
         return UNSAT; // 没有可供选择的文字
     }
