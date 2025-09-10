@@ -1,5 +1,8 @@
 #include "satSolver.h"
 
+// =========== 全局变量 ===========
+static int global_decision_count = 0;  // 全局决策计数器
+
 // =========== 单元传播实现 ===========
 int unit_propagate(CNF* cnf, Literal literal, Assignment* assignment) {
     // 记录赋值
@@ -51,6 +54,48 @@ int unit_propagate(CNF* cnf, Literal literal, Assignment* assignment) {
     *cnf = new_cnf;
     
     return TRUE;
+}
+
+// =========== 纯文字消除优化 ===========
+int pure_literal_elimination(CNF* cnf, Assignment* assignment) {
+    int* pos_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    int* neg_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    int eliminated = FALSE;
+    
+    // 统计每个变量的正负文字出现次数
+    for (int i = 0; i < cnf->size; i++) {
+        Clause* clause = &cnf->data[i];
+        for (int j = 0; j < clause->size; j++) {
+            Literal lit = clause->data[j];
+            int var = (lit > 0) ? lit : -lit;
+            
+            if (lit > 0) {
+                pos_count[var]++;
+            } else {
+                neg_count[var]++;
+            }
+        }
+    }
+    
+    // 找到纯文字并消除
+    for (int i = 1; i <= cnf->num_variables; i++) {
+        if (pos_count[i] > 0 && neg_count[i] == 0) {
+            // 纯正文字
+            if (unit_propagate(cnf, i, assignment)) {
+                eliminated = TRUE;
+            }
+        } else if (pos_count[i] == 0 && neg_count[i] > 0) {
+            // 纯负文字
+            if (unit_propagate(cnf, -i, assignment)) {
+                eliminated = TRUE;
+            }
+        }
+    }
+    
+    free(pos_count);
+    free(neg_count);
+    
+    return eliminated;
 }
 
 // =========== 文字选择策略实现 ===========
@@ -153,8 +198,50 @@ Literal select_literal_jw(const CNF* cnf) {
     return best_literal;
 }
 
+// MOM启发式, 感觉并不有效
+Literal select_literal_mom(const CNF* cnf) {
+    if (cnf->size == 0) return 0;
+    
+    int* pos_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    int* neg_count = (int*)calloc(cnf->num_variables + 1, sizeof(int));
+    
+    // 计算每个文字在未满足子句中的出现次数
+    for (int i = 0; i < cnf->size; i++) {
+        Clause* clause = &cnf->data[i];
+        for (int j = 0; j < clause->size; j++) {
+            Literal lit = clause->data[j];
+            int var = (lit > 0) ? lit : -lit;
+            
+            if (lit > 0) {
+                pos_count[var]++;
+            } else {
+                neg_count[var]++;
+            }
+        }
+    }
+    
+    // MOM评分：选择正负出现频率都高的变量
+    int max_score = -1;
+    Literal best_literal = 0;
+    
+    for (int i = 1; i <= cnf->num_variables; i++) {
+        // MOM评分：(pos_count * neg_count) + pos_count + neg_count
+        int mom_score = pos_count[i] * neg_count[i] + pos_count[i] + neg_count[i];
+        if (mom_score > max_score) {
+            max_score = mom_score;
+            // 优先选择正文字
+            best_literal = (pos_count[i] >= neg_count[i]) ? i : -i;
+        }
+    }
+    
+    free(pos_count);
+    free(neg_count);
+    
+    return best_literal;
+}
+
 // =========== DPLL求解器实现 ===========
-SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
+SatResult dpll_solve(CNF* cnf, Assignment* assignment, int solve_mode) {
     // 单元传播循环
     while (TRUE) {
         int unit_found = FALSE;
@@ -178,6 +265,9 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
         }
     }
     
+    // 纯文字消除优化 - 在单元传播之后执行
+    pure_literal_elimination(cnf, assignment);
+    
     // 检查是否有空子句
     if (has_empty_clause(cnf)) {
         return UNSAT;
@@ -188,19 +278,63 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
         return SAT;
     }
     
-    // 选择一个文字进行分支
-    // Literal literal = select_literal_jw(cnf);
-    // Literal literal = select_literal_occureMax(cnf);
+    // 选择一个文字进行分支 - 分阶段选择策略(舍弃)
+    global_decision_count++;  // 增加决策计数
+    
     Literal literal;
-    int rand_seed = rand() % 100;
-    if (rand_seed < 0) literal = select_literal_simple(cnf);
-    else if (rand_seed < 93) literal = select_literal_jw(cnf);
-    else literal = select_literal_occureMax(cnf);
+    // 计算决策进度百分比 (基于变量数量估算总决策数)
+    // int estimated_total_decisions = cnf->num_variables * 2;  // 粗略估计
+    // double progress = (double)global_decision_count / estimated_total_decisions;
+    
+    // if (progress <= 0.2) {
+    //     // 前1/5：使用MOM启发式
+    //     literal = select_literal_mom(cnf);
+    // } else if (progress >= 0.8) {
+    //     // 后1/5：使用occureMax启发式
+    //     literal = select_literal_occureMax(cnf);
+    // } else {
+    //     // 中间3/5：使用JW启发式
+    //     literal = select_literal_jw(cnf);
+    // }
+
+    switch (solve_mode)
+    {
+        case 0:
+            {
+                int rand_seed = rand() % 100;
+                if (rand_seed < 93) literal = select_literal_jw(cnf);
+                else literal = select_literal_occureMax(cnf);
+                // printf("[0]: %d ", literal);
+                break;
+            }
+
+        case 1:
+            {
+                literal = select_literal_occureMax(cnf);
+                // printf("[1]: %d ", literal);
+                break;
+            }
+
+        default:
+            {
+                if (global_decision_count <= cnf->num_clauses / 10)
+                {
+                    // 前1/10：使用MOM启发式
+                    literal = select_literal_mom(cnf);
+                }
+                else
+                {
+                    literal = select_literal_jw(cnf);
+                }
+                // printf("[default]: %d ", literal);
+                break;
+            }
+    }
 
     if (literal == 0) {
         return UNSAT; // 没有可供选择的文字
     }
-    
+
     int var = (literal > 0) ? literal : -literal;
     
     // 尝试正向赋值
@@ -210,7 +344,7 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
     copy_assignment(&assign_backup, assignment);
     
     if (unit_propagate(cnf, var, assignment)) {
-        SatResult result = dpll_solve(cnf, assignment);
+        SatResult result = dpll_solve(cnf, assignment, solve_mode);
         if (result == SAT) {
             free_dynamic_array(&cnf_backup);
             free_assignment(&assign_backup);
@@ -225,7 +359,7 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
     copy_assignment(assignment, &assign_backup);
     
     if (unit_propagate(cnf, -var, assignment)) {
-        SatResult result = dpll_solve(cnf, assignment);
+        SatResult result = dpll_solve(cnf, assignment, solve_mode);
         if (result == SAT) {
             free_dynamic_array(&cnf_backup);
             free_assignment(&assign_backup);
@@ -241,7 +375,10 @@ SatResult dpll_solve(CNF* cnf, Assignment* assignment) {
 }
 
 // =========== 主求解接口实现 ===========
-SatResult solve_sat(CNF* cnf, Assignment* assignment) {
+SatResult solve_sat(CNF* cnf, Assignment* assignment, int solve_mode) {
+    // 重置全局决策计数器
+    global_decision_count = 0;// 弃用
+    
     // 初始化赋值
     init_assignment(assignment, cnf->num_variables);
     
@@ -250,7 +387,7 @@ SatResult solve_sat(CNF* cnf, Assignment* assignment) {
     copy_dynamic_array(&cnf_copy, cnf);
     
     // 开始DPLL求解
-    SatResult result = dpll_solve(&cnf_copy, assignment);
+    SatResult result = dpll_solve(&cnf_copy, assignment, solve_mode);
     
     free_dynamic_array(&cnf_copy);
     

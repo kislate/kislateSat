@@ -19,7 +19,7 @@ void init_sudoku_grid(SudokuGrid* sudoku) {
     sudoku->filled_cells = 0;
 }
 
-// 检查在指定位置放置数字是否有效（百分号数独版本）
+// 检查在指定位置放置数字是否有效
 int is_valid_placement(const SudokuGrid* sudoku, int row, int col, int num) {
     // 检查行
     for (int j = 0; j < SUDOKU_SIZE; j++) {
